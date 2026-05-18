@@ -431,8 +431,7 @@ controls.maxPolarAngle = Math.PI / 2.1;
 controls.minDistance = 8;
 controls.maxDistance = 28;
 controls.target.set(0, 3, 0);
-controls.autoRotate = true;
-controls.autoRotateSpeed = 1.5;
+controls.autoRotate = false;
 
 // No post-processing — render directly for performance
 let lastFrameTime = 0;
@@ -819,6 +818,13 @@ function animate(now) {
   lastFrameTime = now;
   time += 0.033;
   frameCount++;
+  // Oscillate camera around the funnel
+  const oscillateAngle = Math.sin(time * 0.3) * 0.6;
+  const camRadius = 16;
+  camera.position.x = Math.sin(oscillateAngle) * camRadius;
+  camera.position.z = Math.cos(oscillateAngle) * camRadius;
+  camera.position.y = 6 + Math.sin(time * 0.2) * 0.5;
+  camera.lookAt(0, 3, 0);
   controls.update();
 
   core.rotation.x = time * 0.4;
