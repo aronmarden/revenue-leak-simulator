@@ -1,0 +1,22 @@
+.funnel-loading,
+.funnel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: #000508;
+  color: #94a3b8;
+  font-family: 'Inter', sans-serif;
+  gap: 16px;
+
+  h2 {
+    color: #e2e8f0;
+    font-size: 1.2rem;
+  }
+
+  p {
+    color: #64748b;
+    font-size: 0.85rem;
+  }
+}

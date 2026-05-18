@@ -1,0 +1,7 @@
+{
+  "schemaType": "LAUNCHER",
+  "id": "revenue-funnel",
+  "displayName": "Revenue Command Centre",
+  "description": "Launch the holographic revenue funnel",
+  "rootNerdletId": "funnel-home"
+}

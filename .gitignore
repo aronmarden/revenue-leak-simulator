@@ -6,3 +6,5 @@ dist/
 *.jpg
 *.jpeg
 .claude/
+.playwright-mcp/
+tmp/
