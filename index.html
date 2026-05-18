@@ -98,15 +98,15 @@
 
   .controls {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    z-index: 20; display: flex; gap: 16px; align-items: center;
-    background: rgba(0,10,20,0.7); backdrop-filter: blur(6px);
-    border: 1px solid rgba(30,220,120,0.15);
-    padding: 14px 24px; border-radius: 4px;
+    z-index: 20; display: flex; gap: 20px; align-items: center;
+    background: rgba(0,10,20,0.75); backdrop-filter: blur(6px);
+    border: 1px solid rgba(30,220,120,0.2);
+    padding: 20px 36px; border-radius: 4px;
   }
   .ctrl-btn {
-    padding: 16px 36px; border: 1px solid; border-radius: 3px;
+    padding: 18px 44px; border: 1px solid; border-radius: 3px;
     font-family: 'Orbitron', sans-serif;
-    font-size: 0.72rem; font-weight: 500;
+    font-size: 0.82rem; font-weight: 500;
     cursor: pointer; transition: all 0.3s;
     text-transform: uppercase; letter-spacing: 0.08em;
     background: rgba(0,20,40,0.6);
@@ -158,8 +158,7 @@
     cursor: grab;
     user-select: none;
     transition: border-color 0.5s, box-shadow 0.5s, background 0.5s;
-    resize: both;
-    overflow: hidden;
+    overflow: visible;
   }
   .hud-card:active { cursor: grabbing; }
   .hud-card.degraded {
@@ -201,16 +200,16 @@
   }
   .hud-card.degraded .hud-sub { color: rgba(255,100,120,0.7); }
   .hud-card.recovered .hud-sub { color: rgba(100,200,255,0.6); }
-  .hud-card::after {
-    content: '';
+  .hud-card .resize-handle {
     position: absolute;
-    bottom: 3px; right: 3px;
-    width: 10px; height: 10px;
-    border-right: 2px solid rgba(28,231,131,0.3);
-    border-bottom: 2px solid rgba(28,231,131,0.3);
-    pointer-events: none;
+    bottom: 2px; right: 2px;
+    width: 14px; height: 14px;
+    cursor: nwse-resize;
+    border-right: 2px solid rgba(28,231,131,0.4);
+    border-bottom: 2px solid rgba(28,231,131,0.4);
   }
-  .hud-card.degraded::after { border-color: rgba(255,51,68,0.3); }
+  .hud-card.degraded .resize-handle { border-color: rgba(255,51,68,0.4); }
+  .hud-card.recovered .resize-handle { border-color: rgba(0,229,255,0.4); }
 </style>
 </head>
 <body>
@@ -270,9 +269,6 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
 const PRIMARY = 0x1ce783;
 const PRIMARY_CSS = '#1ce783';
@@ -306,11 +302,9 @@ controls.target.set(0, 3, 0);
 controls.autoRotate = true;
 controls.autoRotateSpeed = 0.3;
 
-const bloomRes = new THREE.Vector2(Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2));
-const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(bloomRes, 1.0, 0.4, 0.82);
-composer.addPass(bloom);
+// No post-processing — render directly for performance
+let lastFrameTime = 0;
+const FRAME_INTERVAL = 1000 / 30; // Cap at 30fps
 
 scene.add(new THREE.AmbientLight(0x0a1510, 0.3));
 
@@ -467,10 +461,10 @@ const alertPositions = {};
 
 const alertLayout = {
   visitors: { side: 'left', row: 0 },
-  browse:   { side: 'left', row: 1 },
-  cart:     { side: 'left', row: 2 },
-  checkout: { side: 'right', row: 0 },
-  payment:  { side: 'right', row: 1 },
+  browse:   { side: 'right', row: 0 },
+  cart:     { side: 'left', row: 1 },
+  checkout: { side: 'right', row: 1 },
+  payment:  { side: 'left', row: 2 },
   delivery: { side: 'right', row: 2 },
 };
 
@@ -482,6 +476,7 @@ stages.forEach(sec => {
     <div class="hud-name"><div class="hud-dot"></div>${sec.label}</div>
     <div class="hud-val" id="hv-${sec.id}">${sec.metric}</div>
     <div class="hud-sub" id="hs-${sec.id}">${sec.sub}</div>
+    <div class="resize-handle" data-resize="${sec.id}"></div>
   `;
   el.style.pointerEvents = 'auto';
   alertContainer.appendChild(el);
@@ -506,6 +501,7 @@ let dragOffset = { x: 0, y: 0 };
 alertContainer.style.pointerEvents = 'none';
 
 document.addEventListener('mousedown', (e) => {
+  if (e.target.closest('.resize-handle')) return;
   const card = e.target.closest('.hud-card');
   if (!card) return;
   activeDrag = card.id.replace('hud-', '');
@@ -526,12 +522,39 @@ document.addEventListener('mousemove', (e) => {
   alerts[activeDrag].style.top = pos.y + 'px';
 });
 
+// Resize logic
+let activeResize = null;
+let resizeStart = { x: 0, y: 0, w: 0, h: 0 };
+
+document.addEventListener('mousedown', (e) => {
+  const handle = e.target.closest('.resize-handle');
+  if (handle) {
+    activeResize = handle.dataset.resize;
+    const card = alerts[activeResize];
+    const rect = card.getBoundingClientRect();
+    resizeStart = { x: e.clientX, y: e.clientY, w: rect.width, h: rect.height };
+    e.preventDefault();
+    e.stopPropagation();
+  }
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (activeResize) {
+    const dx = e.clientX - resizeStart.x;
+    const dy = e.clientY - resizeStart.y;
+    const card = alerts[activeResize];
+    card.style.width = Math.max(150, resizeStart.w + dx) + 'px';
+    card.style.height = Math.max(60, resizeStart.h + dy) + 'px';
+  }
+});
+
 document.addEventListener('mouseup', () => {
   if (activeDrag) {
     alerts[activeDrag].style.cursor = 'grab';
     alerts[activeDrag].style.zIndex = '15';
     activeDrag = null;
   }
+  activeResize = null;
 });
 
 // Leader lines
@@ -618,9 +641,11 @@ let time = 0;
 let particleSpeed = 1.0;
 let frameCount = 0;
 
-function animate() {
+function animate(now) {
   requestAnimationFrame(animate);
-  time += 0.016;
+  if (now - lastFrameTime < FRAME_INTERVAL) return;
+  lastFrameTime = now;
+  time += 0.033;
   frameCount++;
   controls.update();
 
@@ -663,14 +688,13 @@ function animate() {
     coreMat.color.setHex(CYAN); spineMat.color.setHex(CYAN); spineMat.opacity = 0.4;
     containMat.color.setHex(CYAN); containMat.opacity = 0.1;
   } else {
-    const c = state.phase === 'recovered' ? CYAN : PRIMARY;
-    coreGlow.color.setHex(c); coreGlow.intensity = 1.5;
-    coreMat.color.setHex(c); spineMat.color.setHex(c); spineMat.opacity = 0.35;
-    containMat.color.setHex(c); containMat.opacity = 0.08;
+    coreGlow.color.setHex(PRIMARY); coreGlow.intensity = 1.5;
+    coreMat.color.setHex(PRIMARY); spineMat.color.setHex(PRIMARY); spineMat.opacity = 0.35;
+    containMat.color.setHex(PRIMARY); containMat.opacity = 0.08;
   }
 
   if (frameCount % 4 === 0) updateLeaderLines();
-  composer.render();
+  renderer.render(scene, camera);
 }
 
 animate();
@@ -723,7 +747,6 @@ document.getElementById('failBtn').addEventListener('click', () => {
   document.getElementById('sDot').className = 'dot red';
   document.getElementById('sText').textContent = 'CRITICAL FAILURE';
   controls.autoRotate = false;
-  bloom.strength = 1.4;
   addTicker('Traffic spike: 4x capacity — systems stressed', 'error');
 
   const order = ['delivery', 'payment', 'checkout', 'cart', 'browse', 'visitors'];
@@ -748,7 +771,6 @@ document.getElementById('fixBtn').addEventListener('click', () => {
   document.getElementById('riskBanner').classList.add('hidden');
   document.getElementById('sDot').className = 'dot cyan';
   document.getElementById('sText').textContent = 'RECOVERING';
-  bloom.strength = 0.8;
   addTicker('Auto-remediation deployed — scaling infrastructure', 'success');
 
   const order = ['visitors', 'browse', 'cart', 'checkout', 'payment', 'delivery'];
@@ -767,12 +789,16 @@ document.getElementById('fixBtn').addEventListener('click', () => {
     state.rate = 14200;
     particleSpeed = 1.8;
     controls.autoRotate = true;
-    bloom.strength = 1.1;
-    stages.forEach(sec => { sectionLights[sec.id].color.setHex(CYAN); sectionLights[sec.id].intensity = 0.5; });
-    dataParticles.forEach(p => p.mat.color.setHex(CYAN));
-    dustMat.color.setHex(CYAN);
-    document.getElementById('sDot').className = 'dot cyan';
-    document.getElementById('sText').textContent = 'SYSTEMS RESTORED';
+    stages.forEach(sec => {
+      setSectionColor(sec.id, PRIMARY, 0.6);
+      setAlertState(sec.id, 'healthy');
+      sectionLights[sec.id].color.setHex(PRIMARY);
+      sectionLights[sec.id].intensity = 0.4;
+    });
+    dataParticles.forEach(p => p.mat.color.setHex(PRIMARY));
+    dustMat.color.setHex(PRIMARY);
+    document.getElementById('sDot').className = 'dot';
+    document.getElementById('sText').textContent = 'SYSTEMS NOMINAL';
     document.getElementById('savedBanner').classList.remove('hidden');
     document.getElementById('savedVal').textContent = fmt(state.totalLost);
     addTicker('All systems restored — ' + fmt(state.totalLost) + ' protected', 'success');
@@ -794,7 +820,6 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   });
   dataParticles.forEach(p => p.mat.color.setHex(PRIMARY));
   dustMat.color.setHex(PRIMARY);
-  bloom.strength = 1.0;
   controls.autoRotate = true;
   document.getElementById('failBtn').disabled = false;
   document.getElementById('fixBtn').classList.add('hidden');
@@ -812,7 +837,6 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
 });
 
 addTicker('Command Centre online — monitoring conversion funnel');
