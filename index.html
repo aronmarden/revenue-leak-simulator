@@ -148,19 +148,22 @@
   .ctrl-btn:disabled { opacity: 0.15; pointer-events: none; }
 
   .ticker-bar {
-    position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%);
-    z-index: 21; display: flex; gap: 12px; max-width: 1000px; pointer-events: none;
-    flex-wrap: wrap; justify-content: center;
+    position: fixed; bottom: 115px; left: 50%; transform: translateX(-50%);
+    z-index: 21; display: flex; flex-direction: column; gap: 8px;
+    max-width: 800px; width: 90%; pointer-events: none;
+    align-items: center;
   }
   .ticker-item {
-    flex-shrink: 0; padding: 12px 20px 12px 16px;
+    padding: 16px 28px 16px 22px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.78rem;
-    background: rgba(0,12,8,0.85); border: 1px solid rgba(30,220,120,0.15);
-    color: rgba(30,220,120,0.7); backdrop-filter: blur(6px);
+    font-size: 1rem;
+    background: rgba(0,12,8,0.9); border: 1px solid rgba(30,220,120,0.2);
+    color: rgba(30,220,120,0.8); backdrop-filter: blur(6px);
     animation: tick-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); white-space: nowrap;
-    clip-path: polygon(6px 0, 100% 0, 100% 100%, 0 100%, 0 6px);
-    border-left: 2px solid rgba(30,220,120,0.3);
+    clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%, 0 8px);
+    border-left: 3px solid rgba(30,220,120,0.4);
+    width: 100%;
+    text-align: center;
   }
   .ticker-item.error { border-color: rgba(255,51,68,0.4); border-left-color: #ff3344; color: #ff3344; }
   .ticker-item.success { border-color: rgba(0,229,255,0.4); border-left-color: #00e5ff; color: #00e5ff; }
@@ -829,7 +832,7 @@ function addTicker(msg, type = '') {
   const ts = t.toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
   el.innerHTML = `<span style="opacity:0.5;margin-right:6px">${ts}</span><span style="opacity:0.6;margin-right:4px">›</span>${msg}`;
   bar.prepend(el);
-  if (bar.children.length > 5) bar.removeChild(bar.lastChild);
+  if (bar.children.length > 3) bar.removeChild(bar.lastChild);
 }
 
 // ===== FAILURE =====
