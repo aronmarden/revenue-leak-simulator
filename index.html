@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Revenue Command Centre</title>
+<title>New Relic Command Centre</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;600;700&family=Orbitron:wght@400;500;600;700&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -32,12 +32,33 @@
     pointer-events: none;
   }
   .header * { pointer-events: auto; }
+  .header-left {
+    display: flex; align-items: center; gap: 14px;
+  }
+  .header-left img {
+    height: 28px; opacity: 0.9;
+  }
   .header h1 {
     font-family: 'Orbitron', sans-serif;
     font-size: 0.8rem; font-weight: 600;
     letter-spacing: 0.25em; text-transform: uppercase;
     color: rgba(30, 220, 120, 0.7);
     text-shadow: 0 0 10px rgba(28,231,131,0.15);
+  }
+  .autoplay-btn {
+    padding: 6px 14px; border-radius: 2px;
+    border: 1px solid rgba(30,220,120,0.25);
+    background: rgba(0,20,10,0.6);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem; color: rgba(30,220,120,0.7);
+    cursor: pointer; transition: all 0.3s;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .autoplay-btn:hover { border-color: rgba(30,220,120,0.5); }
+  .autoplay-btn.active {
+    border-color: rgba(28,231,131,0.6);
+    color: #1ce783;
+    box-shadow: 0 0 12px rgba(28,231,131,0.15);
   }
   .status-pill {
     display: flex; align-items: center; gap: 8px;
@@ -327,10 +348,16 @@
 <div class="corner-deco br"></div>
 
 <div class="header">
-  <h1>Revenue Command Centre</h1>
-  <div class="status-pill">
-    <div class="dot" id="sDot"></div>
-    <span id="sText">SYSTEMS NOMINAL</span>
+  <div class="header-left">
+    <img src="https://newrelic.com/themes/flavor/assets/favicons/favicon__master--196x196.png" alt="New Relic">
+    <h1>New Relic Command Centre</h1>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <button class="autoplay-btn" id="autoplayBtn">Auto Play</button>
+    <div class="status-pill">
+      <div class="dot" id="sDot"></div>
+      <span id="sText">SYSTEMS NOMINAL</span>
+    </div>
   </div>
 </div>
 
@@ -608,7 +635,7 @@ function repositionCards() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   const cx = w / 2;
-  const offsetX = Math.min(320, w * 0.28);
+  const offsetX = Math.min(440, w * 0.38);
 
   stages.forEach(sec => {
     const pos = alertPositions[sec.id];
@@ -944,12 +971,12 @@ document.getElementById('failBtn').addEventListener('click', () => {
       setSectionColor(id, RED, 0.8);
       setAlertState(id, 'degraded');
       addHudLog(id, failMsgs[id], 'error');
-    }, 500 + i * 700);
+    }, 750 + i * 1050);
   });
   setTimeout(() => {
     setStatusMsg('Revenue loss: $45,000/min — remediation available', 'error');
     document.getElementById('fixBtn').classList.remove('hidden');
-  }, 5500);
+  }, 8000);
 });
 
 // ===== FIX =====
@@ -976,7 +1003,7 @@ document.getElementById('fixBtn').addEventListener('click', () => {
       setSectionColor(id, CYAN, 0.6);
       setAlertState(id, 'recovered');
       addHudLog(id, fixMsgs[id], 'success');
-    }, 400 + i * 500);
+    }, 600 + i * 750);
   });
 
   setTimeout(() => {
@@ -998,7 +1025,7 @@ document.getElementById('fixBtn').addEventListener('click', () => {
     document.getElementById('savedBanner').classList.remove('hidden');
     document.getElementById('savedVal').textContent = fmt(state.totalLost);
     setStatusMsg('All systems restored — ' + fmt(state.totalLost) + ' protected', 'success');
-  }, 5000);
+  }, 7500);
 });
 
 // ===== RESET =====
@@ -1038,6 +1065,43 @@ window.addEventListener('resize', () => {
 });
 
 setStatusMsg('Command Centre online — monitoring conversion funnel');
+
+// ===== AUTOPLAY =====
+let autoplayActive = false;
+let autoplayTimer = null;
+
+function autoplayLoop() {
+  if (!autoplayActive) return;
+
+  if (state.phase === 'healthy') {
+    document.getElementById('failBtn').click();
+    autoplayTimer = setTimeout(autoplayLoop, 10000);
+  } else if (state.phase === 'degraded') {
+    document.getElementById('fixBtn').click();
+    autoplayTimer = setTimeout(autoplayLoop, 10000);
+  } else if (state.phase === 'recovered') {
+    document.getElementById('resetBtn').click();
+    autoplayTimer = setTimeout(autoplayLoop, 5000);
+  } else {
+    autoplayTimer = setTimeout(autoplayLoop, 2000);
+  }
+}
+
+document.getElementById('autoplayBtn').addEventListener('click', () => {
+  autoplayActive = !autoplayActive;
+  const btn = document.getElementById('autoplayBtn');
+  btn.classList.toggle('active', autoplayActive);
+  btn.textContent = autoplayActive ? 'Auto Play ●' : 'Auto Play';
+
+  if (autoplayActive) {
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.5;
+    autoplayLoop();
+  } else {
+    if (autoplayTimer) clearTimeout(autoplayTimer);
+    autoplayTimer = null;
+  }
+});
 </script>
 
 </body>
