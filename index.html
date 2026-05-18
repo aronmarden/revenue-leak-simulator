@@ -111,9 +111,9 @@
   .impact-banner.saved .ib-value { color: #00e5ff; text-shadow: 0 0 12px rgba(0,229,255,0.3); }
 
   .controls {
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    z-index: 20; display: flex; gap: 20px; align-items: center;
-    background: rgba(0,8,12,0.85); backdrop-filter: blur(8px);
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    z-index: 22; display: flex; gap: 20px; align-items: center;
+    background: rgba(0,8,12,0.9); backdrop-filter: blur(8px);
     border: 1px solid rgba(30,220,120,0.15);
     padding: 22px 40px;
     clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
@@ -148,16 +148,16 @@
   .ctrl-btn:disabled { opacity: 0.15; pointer-events: none; }
 
   .ticker-bar {
-    position: fixed; bottom: 95px; left: 50%; transform: translateX(-50%);
-    z-index: 20; display: flex; gap: 12px; max-width: 1000px; pointer-events: none;
+    position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%);
+    z-index: 21; display: flex; gap: 12px; max-width: 1000px; pointer-events: none;
     flex-wrap: wrap; justify-content: center;
   }
   .ticker-item {
-    flex-shrink: 0; padding: 10px 18px 10px 14px;
+    flex-shrink: 0; padding: 12px 20px 12px 16px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
-    background: rgba(0,12,8,0.8); border: 1px solid rgba(30,220,120,0.15);
-    color: rgba(30,220,120,0.7); backdrop-filter: blur(4px);
+    font-size: 0.78rem;
+    background: rgba(0,12,8,0.85); border: 1px solid rgba(30,220,120,0.15);
+    color: rgba(30,220,120,0.7); backdrop-filter: blur(6px);
     animation: tick-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); white-space: nowrap;
     clip-path: polygon(6px 0, 100% 0, 100% 100%, 0 100%, 0 6px);
     border-left: 2px solid rgba(30,220,120,0.3);
