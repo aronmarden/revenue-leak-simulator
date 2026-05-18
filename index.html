@@ -432,7 +432,7 @@ controls.minDistance = 8;
 controls.maxDistance = 28;
 controls.target.set(0, 3, 0);
 controls.autoRotate = true;
-controls.autoRotateSpeed = 0.5;
+controls.autoRotateSpeed = 1.5;
 
 // No post-processing — render directly for performance
 let lastFrameTime = 0;
@@ -1094,7 +1094,7 @@ document.getElementById('autoplayBtn').addEventListener('click', () => {
 
   if (autoplayActive) {
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.5;
+    controls.autoRotateSpeed = 1.5;
     autoplayLoop();
   } else {
     if (autoplayTimer) clearTimeout(autoplayTimer);
