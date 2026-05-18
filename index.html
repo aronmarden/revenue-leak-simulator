@@ -500,15 +500,26 @@ stages.forEach(sec => {
   sectionLights[sec.id] = light;
 });
 
-// Data particles (reduced for performance)
+// Data particles (users flowing through funnel)
 const dataParticles = [];
+const particleLabelContainer = document.createElement('div');
+particleLabelContainer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:12;';
+document.body.appendChild(particleLabelContainer);
+
 for (let i = 0; i < 15; i++) {
-  const geo = new THREE.SphereGeometry(0.05, 4, 4);
-  const mat = new THREE.MeshBasicMaterial({ color: PRIMARY, transparent: true, opacity: 0.5 });
+  const geo = new THREE.SphereGeometry(0.06, 4, 4);
+  const mat = new THREE.MeshBasicMaterial({ color: PRIMARY, transparent: true, opacity: 0.6 });
   const mesh = new THREE.Mesh(geo, mat);
-  mesh.userData = { offset: Math.random(), speed: 0.15 + Math.random() * 0.2 };
+  const userId = Math.floor(100000 + Math.random() * 900000);
+  mesh.userData = { offset: Math.random(), speed: 0.15 + Math.random() * 0.2, userId };
   scene.add(mesh);
-  dataParticles.push({ mesh, mat });
+
+  const label = document.createElement('div');
+  label.style.cssText = `position:absolute;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:rgba(28,231,131,0.55);white-space:nowrap;transform:translate(8px,-50%);`;
+  label.textContent = `userId: ${userId}`;
+  particleLabelContainer.appendChild(label);
+
+  dataParticles.push({ mesh, mat, label });
 }
 
 // Dust (static cloud, rotated for movement effect)
@@ -751,15 +762,31 @@ function animate(now) {
   containRing.rotation.z = time * 0.08;
   dustMesh.rotation.y = time * 0.02;
 
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
   dataParticles.forEach(p => {
     const d = p.mesh.userData;
     d.offset += 0.002 * d.speed * particleSpeed;
-    if (d.offset > 1) d.offset = 0;
+    if (d.offset > 1) {
+      d.offset = 0;
+      d.userId = Math.floor(100000 + Math.random() * 900000);
+      p.label.textContent = `userId: ${d.userId}`;
+    }
     const t = d.offset;
     const r = 4.0 - 2.8 * t;
     const y = 7.0 - t * 7.5;
     const angle = t * Math.PI * 4 + d.speed * 20;
     p.mesh.position.set(Math.cos(angle) * r * 0.6, y, Math.sin(angle) * r * 0.6);
+
+    if (frameCount % 4 === 0) {
+      const screenPos = p.mesh.position.clone().project(camera);
+      const sx = (screenPos.x * 0.5 + 0.5) * w;
+      const sy = (-screenPos.y * 0.5 + 0.5) * h;
+      p.label.style.left = sx + 'px';
+      p.label.style.top = sy + 'px';
+      p.label.style.opacity = screenPos.z > 1 ? '0' : '1';
+    }
   });
 
   if (state.phase === 'degraded') {
