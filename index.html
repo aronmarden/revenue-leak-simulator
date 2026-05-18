@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revenue Command Centre — Holographic Funnel</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;600;700&family=Orbitron:wght@400;500;600;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #000508;
+    color: #c8e6f8;
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+  }
+  canvas#scene { display: block; position: fixed; inset: 0; z-index: 0; }
+
+  .scanlines {
+    position: fixed; inset: 0; z-index: 5; pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,180,255,0.006) 2px, rgba(0,180,255,0.006) 4px);
+  }
+  .vignette {
+    position: fixed; inset: 0; z-index: 4; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 35%, rgba(0,5,8,0.75) 100%);
+  }
+
+  .header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    padding: 20px 32px;
+    display: flex; justify-content: space-between; align-items: center;
+    pointer-events: none;
+  }
+  .header * { pointer-events: auto; }
+  .header h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem; font-weight: 500;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: rgba(100, 200, 255, 0.5);
+  }
+  .status-pill {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 2px;
+    border: 1px solid rgba(100, 200, 255, 0.2);
+    background: rgba(0, 20, 40, 0.6);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; color: rgba(100, 200, 255, 0.7);
+  }
+  .status-pill .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #00e5ff; box-shadow: 0 0 8px #00e5ff;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .status-pill .dot.red { background: #ff3344; box-shadow: 0 0 8px #ff3344; }
+  .status-pill .dot.amber { background: #ffaa00; box-shadow: 0 0 8px #ffaa00; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .revenue-display {
+    position: fixed; top: 22px; left: 50%; transform: translateX(-50%);
+    text-align: center; z-index: 20; pointer-events: none;
+  }
+  .revenue-display .amount {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2.2rem; font-weight: 600;
+    color: #00e5ff;
+    text-shadow: 0 0 20px rgba(0,229,255,0.3), 0 0 60px rgba(0,229,255,0.1);
+    transition: color 0.8s, text-shadow 0.8s;
+  }
+  .revenue-display .amount.red {
+    color: #ff3344;
+    text-shadow: 0 0 20px rgba(255,51,68,0.3), 0 0 60px rgba(255,51,68,0.1);
+  }
+  .revenue-display .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.55rem; text-transform: uppercase;
+    letter-spacing: 0.15em; color: rgba(100,200,255,0.35); margin-top: 2px;
+  }
+  .revenue-display .rate {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem; margin-top: 2px;
+  }
+  .rate.pos { color: rgba(0,229,255,0.8); }
+  .rate.neg { color: rgba(255,51,68,0.9); }
+
+  .impact-banner {
+    position: fixed; top: 100px; left: 50%; transform: translateX(-50%);
+    z-index: 20; padding: 10px 24px; text-align: center; pointer-events: none;
+    border: 1px solid; backdrop-filter: blur(4px);
+  }
+  .impact-banner.risk { background: rgba(255,30,50,0.06); border-color: rgba(255,51,68,0.5); }
+  .impact-banner.saved { background: rgba(0,229,255,0.06); border-color: rgba(0,229,255,0.5); }
+  .impact-banner .ib-label { font-family:'Orbitron',sans-serif; font-size:0.55rem; font-weight:500; text-transform:uppercase; letter-spacing:0.12em; }
+  .impact-banner.risk .ib-label { color: #ff3344; }
+  .impact-banner.saved .ib-label { color: #00e5ff; }
+  .impact-banner .ib-value { font-family:'Orbitron',sans-serif; font-size:1.2rem; font-weight:600; margin-top:2px; }
+  .impact-banner.risk .ib-value { color: #ff3344; }
+  .impact-banner.saved .ib-value { color: #00e5ff; }
+
+  .controls {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    z-index: 20; display: flex; gap: 14px; align-items: center;
+  }
+  .ctrl-btn {
+    padding: 14px 30px; border: 1px solid; border-radius: 2px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem; font-weight: 500;
+    cursor: pointer; transition: all 0.3s;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    background: rgba(0,20,40,0.6); backdrop-filter: blur(4px);
+  }
+  .ctrl-btn.danger { border-color: rgba(255,51,68,0.5); color: #ff3344; box-shadow: 0 0 20px rgba(255,51,68,0.12); }
+  .ctrl-btn.danger:hover { background: rgba(255,51,68,0.1); box-shadow: 0 0 30px rgba(255,51,68,0.25); }
+  .ctrl-btn.success { border-color: rgba(0,229,255,0.5); color: #00e5ff; box-shadow: 0 0 20px rgba(0,229,255,0.12); }
+  .ctrl-btn.success:hover { background: rgba(0,229,255,0.1); box-shadow: 0 0 30px rgba(0,229,255,0.25); }
+  .ctrl-btn.ghost { border-color: rgba(100,200,255,0.2); color: rgba(100,200,255,0.5); }
+  .ctrl-btn.ghost:hover { border-color: rgba(100,200,255,0.4); }
+  .ctrl-btn:disabled { opacity: 0.2; pointer-events: none; }
+
+  .ticker-bar {
+    position: fixed; bottom: 75px; left: 50%; transform: translateX(-50%);
+    z-index: 20; display: flex; gap: 8px; max-width: 750px; pointer-events: none;
+  }
+  .ticker-item {
+    flex-shrink: 0; padding: 5px 11px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    background: rgba(0,20,40,0.7); border: 1px solid rgba(100,200,255,0.15);
+    color: rgba(100,200,255,0.6); backdrop-filter: blur(4px);
+    animation: tick-in 0.3s ease; white-space: nowrap;
+  }
+  .ticker-item.error { border-color: rgba(255,51,68,0.4); color: #ff3344; }
+  .ticker-item.success { border-color: rgba(0,229,255,0.4); color: #00e5ff; }
+  .ticker-item.warn { border-color: rgba(255,170,0,0.4); color: #ffaa00; }
+  @keyframes tick-in { from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)} }
+
+  .hidden { display: none !important; }
+
+  .corner-deco { position: fixed; z-index: 6; pointer-events: none; }
+  .corner-deco.tl { top:10px;left:10px;border-top:1px solid rgba(0,229,255,0.15);border-left:1px solid rgba(0,229,255,0.15);width:30px;height:30px; }
+  .corner-deco.tr { top:10px;right:10px;border-top:1px solid rgba(0,229,255,0.15);border-right:1px solid rgba(0,229,255,0.15);width:30px;height:30px; }
+  .corner-deco.bl { bottom:10px;left:10px;border-bottom:1px solid rgba(0,229,255,0.15);border-left:1px solid rgba(0,229,255,0.15);width:30px;height:30px; }
+  .corner-deco.br { bottom:10px;right:10px;border-bottom:1px solid rgba(0,229,255,0.15);border-right:1px solid rgba(0,229,255,0.15);width:30px;height:30px; }
+</style>
+</head>
+<body>
+
+<div class="scanlines"></div>
+<div class="vignette"></div>
+<div class="corner-deco tl"></div>
+<div class="corner-deco tr"></div>
+<div class="corner-deco bl"></div>
+<div class="corner-deco br"></div>
+
+<div class="header">
+  <h1>Revenue Command Centre</h1>
+  <div class="status-pill">
+    <div class="dot" id="sDot"></div>
+    <span id="sText">SYSTEMS NOMINAL</span>
+  </div>
+</div>
+
+<div class="revenue-display">
+  <div class="amount" id="revAmt">$2,847,000</div>
+  <div class="label">Revenue Today</div>
+  <div class="rate pos" id="revRate">+$12,400/min</div>
+</div>
+
+<div class="impact-banner risk hidden" id="riskBanner">
+  <div class="ib-label">Revenue at Risk</div>
+  <div class="ib-value" id="riskVal">$45,000/min</div>
+</div>
+<div class="impact-banner saved hidden" id="savedBanner">
+  <div class="ib-label">Revenue Protected</div>
+  <div class="ib-value" id="savedVal">$0</div>
+</div>
+
+<div class="ticker-bar" id="ticker"></div>
+
+<div class="controls">
+  <button class="ctrl-btn danger" id="failBtn">Simulate Black Friday Spike</button>
+  <button class="ctrl-btn success hidden" id="fixBtn">Deploy Auto-Remediation</button>
+  <button class="ctrl-btn ghost hidden" id="resetBtn">Reset</button>
+</div>
+
+<canvas id="scene"></canvas>
+
+<div id="alertContainer" style="position:fixed;inset:0;pointer-events:none;z-index:15;"></div>
+<svg id="leaderLines" style="position:fixed;inset:0;pointer-events:none;z-index:14;width:100%;height:100%;overflow:visible;"></svg>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+// ===== STATE =====
+const state = { phase: 'healthy', revenue: 2_847_000, rate: 12400, riskPerMin: 45000, totalLost: 0 };
+
+// ===== RENDERER =====
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000508);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(10, 6, 12);
+camera.lookAt(0, 3, 0);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.04;
+controls.maxPolarAngle = Math.PI / 2.1;
+controls.minDistance = 8;
+controls.maxDistance = 28;
+controls.target.set(0, 3, 0);
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.3;
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.4, 0.82);
+composer.addPass(bloom);
+
+scene.add(new THREE.AmbientLight(0x0a1530, 0.3));
+
+// ===== COLOURS =====
+const CYAN = 0x00e5ff;
+const GREEN = 0x00e676;
+const RED = 0xff3344;
+const AMBER = 0xffaa00;
+
+// ===== FUNNEL STAGES =====
+// Top (largest) = visitors, bottom (smallest) = delivery
+// Each stage is a hexagonal prism that gets smaller as you go down
+const stages = [
+  { id: 'visitors',   label: 'Website Visitors',   y: 6.0, radius: 4.0, height: 0.8, metric: '142,000/hr', sub: 'sessions active' },
+  { id: 'browse',     label: 'Product Browsing',   y: 4.8, radius: 3.4, height: 0.8, metric: '98,400/hr',  sub: 'product page views' },
+  { id: 'cart',       label: 'Add to Cart',        y: 3.6, radius: 2.8, height: 0.8, metric: '34,200/hr',  sub: 'items carted' },
+  { id: 'checkout',   label: 'Checkout',           y: 2.4, radius: 2.2, height: 0.8, metric: '18,600/hr',  sub: 'checkout initiated' },
+  { id: 'payment',    label: 'Payment Processing', y: 1.2, radius: 1.7, height: 0.8, metric: '99.7%',      sub: 'transaction success' },
+  { id: 'delivery',   label: 'Order & Delivery',   y: 0.0, radius: 1.2, height: 0.8, metric: '1,240/hr',   sub: 'orders dispatched' },
+];
+
+const degradedMetrics = {
+  visitors:  { metric: '142,000/hr', sub: 'but page load 12s+' },
+  browse:    { metric: '31,200/hr',  sub: '↓ 68% — timeout errors' },
+  cart:      { metric: '8,100/hr',   sub: '↓ 76% — cart failures' },
+  checkout:  { metric: '2,400/hr',   sub: '↓ 87% — checkout errors' },
+  payment:   { metric: '34.2%',      sub: 'transaction FAILURE rate' },
+  delivery:  { metric: '180/hr',     sub: 'backlog: 4,200 pending' },
+};
+
+const recoveredMetrics = {
+  visitors:  { metric: '156,000/hr', sub: 'sessions active' },
+  browse:    { metric: '112,000/hr', sub: 'product page views' },
+  cart:      { metric: '41,800/hr',  sub: 'items carted' },
+  checkout:  { metric: '22,400/hr',  sub: 'checkout initiated' },
+  payment:   { metric: '99.9%',      sub: 'transaction success' },
+  delivery:  { metric: '1,680/hr',   sub: 'orders dispatched' },
+};
+
+// ===== BUILD FUNNEL GEOMETRY =====
+const sectionMeshes = {};
+const sectionMaterials = {};
+
+function createHexPrism(radius, height, y) {
+  const group = new THREE.Group();
+
+  // Hexagonal prism wireframe
+  const geo = new THREE.CylinderGeometry(radius, radius, height, 6, 1, false);
+  const edges = new THREE.EdgesGeometry(geo);
+  const wireMat = new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.6 });
+  const wireframe = new THREE.LineSegments(edges, wireMat);
+  wireframe.position.y = y + height / 2;
+  group.add(wireframe);
+
+  // Transparent fill
+  const fillMat = new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.025, side: THREE.DoubleSide, depthWrite: false });
+  const fill = new THREE.Mesh(geo, fillMat);
+  fill.position.y = y + height / 2;
+  group.add(fill);
+
+  // Top face highlight
+  const topGeo = new THREE.CircleGeometry(radius, 6);
+  const topMat = new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.04, side: THREE.DoubleSide, depthWrite: false });
+  const top = new THREE.Mesh(topGeo, topMat);
+  top.rotation.x = -Math.PI / 2;
+  top.position.y = y + height;
+  group.add(top);
+
+  // Outer glow ring (hex-shaped)
+  const ringGeo = new THREE.RingGeometry(radius - 0.05, radius + 0.05, 6);
+  const ringMat = new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = y + height;
+  group.add(ring);
+
+  return { group, wireMat, fillMat, topMat, ringMat };
+}
+
+stages.forEach(sec => {
+  const { group, wireMat, fillMat, topMat, ringMat } = createHexPrism(sec.radius, sec.height, sec.y);
+  scene.add(group);
+  sectionMeshes[sec.id] = group;
+  sectionMaterials[sec.id] = { wireMat, fillMat, topMat, ringMat };
+});
+
+// Vertical connecting struts between stages
+stages.forEach((sec, i) => {
+  if (i === stages.length - 1) return;
+  const next = stages[i + 1];
+  const strutCount = 6;
+  for (let j = 0; j < strutCount; j++) {
+    const angle = (j / strutCount) * Math.PI * 2;
+    const topR = Math.min(sec.radius, next.radius) * 0.7;
+    const points = [
+      new THREE.Vector3(Math.cos(angle) * topR, sec.y, Math.sin(angle) * topR),
+      new THREE.Vector3(Math.cos(angle) * topR, sec.y + sec.height, Math.sin(angle) * topR),
+    ];
+    // Actually connect bottom of current to top of next via small line
+    const connPoints = [
+      new THREE.Vector3(Math.cos(angle) * next.radius * 0.5, next.y + next.height, Math.sin(angle) * next.radius * 0.5),
+      new THREE.Vector3(Math.cos(angle) * sec.radius * 0.5, sec.y, Math.sin(angle) * sec.radius * 0.5),
+    ];
+    const geo = new THREE.BufferGeometry().setFromPoints(connPoints);
+    const mat = new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.15 });
+    scene.add(new THREE.Line(geo, mat));
+  }
+});
+
+// Central spine
+const spineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -0.5, 0), new THREE.Vector3(0, 7.5, 0)]);
+const spineMat = new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.4 });
+scene.add(new THREE.Line(spineGeo, spineMat));
+
+// Core
+const coreGeo = new THREE.IcosahedronGeometry(0.3, 1);
+const coreMat = new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.25, wireframe: true });
+const core = new THREE.Mesh(coreGeo, coreMat);
+core.position.y = 3.5;
+scene.add(core);
+
+const coreGlow = new THREE.PointLight(CYAN, 1.5, 15);
+coreGlow.position.y = 3.5;
+scene.add(coreGlow);
+
+// Floor containment ring
+const containGeo = new THREE.TorusGeometry(5, 0.02, 8, 64);
+const containMat = new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.1 });
+const containRing = new THREE.Mesh(containGeo, containMat);
+containRing.rotation.x = Math.PI / 2;
+containRing.position.y = -0.2;
+scene.add(containRing);
+
+// Section point lights
+const sectionLights = {};
+stages.forEach(sec => {
+  const light = new THREE.PointLight(GREEN, 0.3, 4);
+  light.position.set(sec.radius * 0.5, sec.y + sec.height / 2, 0);
+  scene.add(light);
+  sectionLights[sec.id] = light;
+});
+
+// Data particles flowing down the funnel
+const dataParticles = [];
+for (let i = 0; i < 40; i++) {
+  const geo = new THREE.SphereGeometry(0.04, 6, 6);
+  const mat = new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.6 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.userData = { offset: Math.random(), speed: 0.15 + Math.random() * 0.2 };
+  scene.add(mesh);
+  dataParticles.push({ mesh, mat });
+}
+
+// Dust
+const dustGeo = new THREE.BufferGeometry();
+const dustCount = 400;
+const dustPos = new Float32Array(dustCount * 3);
+for (let i = 0; i < dustCount; i++) {
+  dustPos[i*3] = (Math.random()-0.5)*20;
+  dustPos[i*3+1] = Math.random()*10;
+  dustPos[i*3+2] = (Math.random()-0.5)*20;
+}
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dustMat = new THREE.PointsMaterial({ color: CYAN, size: 0.025, transparent: true, opacity: 0.25 });
+scene.add(new THREE.Points(dustGeo, dustMat));
+
+// ===== ALERT BOXES =====
+const alertContainer = document.getElementById('alertContainer');
+const leaderSVG = document.getElementById('leaderLines');
+const alerts = {};
+
+stages.forEach(sec => {
+  const el = document.createElement('div');
+  el.id = 'alert-' + sec.id;
+  el.style.cssText = `
+    position:absolute; opacity:0; transition: opacity 0.4s, border-color 0.5s, box-shadow 0.5s, background 0.5s;
+    background: rgba(0,229,255,0.04);
+    border: 1px solid rgba(0,229,255,0.3);
+    box-shadow: 0 0 12px rgba(0,229,255,0.08), inset 0 0 10px rgba(0,229,255,0.02);
+    padding: 9px 13px; min-width: 145px;
+    font-family: 'JetBrains Mono', monospace;
+    backdrop-filter: blur(4px);
+  `;
+  el.innerHTML = `
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:#00e5ff;margin-bottom:3px;display:flex;align-items:center;gap:5px;transition:color 0.5s;" id="alert-label-${sec.id}">
+      <span style="width:5px;height:5px;border-radius:50%;background:#00e676;box-shadow:0 0 4px #00e676;display:inline-block;transition:background 0.5s,box-shadow 0.5s;" id="alert-dot-${sec.id}"></span>
+      ${sec.label}
+    </div>
+    <div style="font-size:0.85rem;font-weight:600;color:#e0f7fa;transition:color 0.5s;" id="alert-val-${sec.id}">${sec.metric}</div>
+    <div style="font-size:0.55rem;color:rgba(100,200,255,0.6);margin-top:2px;transition:color 0.5s;" id="alert-sub-${sec.id}">${sec.sub}</div>
+  `;
+  alertContainer.appendChild(el);
+  alerts[sec.id] = el;
+});
+
+// Show all alerts in green on start (healthy state)
+setTimeout(() => {
+  Object.values(alerts).forEach(el => el.style.opacity = '1');
+}, 500);
+
+const alertLayout = {
+  visitors:  { side: 'left', row: 0 },
+  browse:    { side: 'left', row: 1 },
+  cart:      { side: 'left', row: 2 },
+  checkout:  { side: 'right', row: 0 },
+  payment:   { side: 'right', row: 1 },
+  delivery:  { side: 'right', row: 2 },
+};
+
+function setAlertState(id, mode) {
+  const el = alerts[id];
+  const dot = document.getElementById('alert-dot-' + id);
+  const label = document.getElementById('alert-label-' + id);
+  const val = document.getElementById('alert-val-' + id);
+  const sub = document.getElementById('alert-sub-' + id);
+
+  if (mode === 'degraded') {
+    el.style.background = 'rgba(255,20,40,0.06)';
+    el.style.borderColor = 'rgba(255,51,68,0.6)';
+    el.style.boxShadow = '0 0 20px rgba(255,51,68,0.12), inset 0 0 12px rgba(255,51,68,0.04)';
+    dot.style.background = '#ff3344';
+    dot.style.boxShadow = '0 0 6px #ff3344';
+    label.style.color = '#ff3344';
+    val.textContent = degradedMetrics[id].metric;
+    val.style.color = '#ff6677';
+    sub.textContent = degradedMetrics[id].sub;
+    sub.style.color = 'rgba(255,100,120,0.7)';
+  } else if (mode === 'recovered') {
+    el.style.background = 'rgba(0,230,118,0.04)';
+    el.style.borderColor = 'rgba(0,230,118,0.4)';
+    el.style.boxShadow = '0 0 12px rgba(0,230,118,0.08), inset 0 0 10px rgba(0,230,118,0.02)';
+    dot.style.background = '#00e676';
+    dot.style.boxShadow = '0 0 6px #00e676';
+    label.style.color = '#00e5ff';
+    val.textContent = recoveredMetrics[id].metric;
+    val.style.color = '#e0f7fa';
+    sub.textContent = recoveredMetrics[id].sub;
+    sub.style.color = 'rgba(100,200,255,0.6)';
+  } else {
+    el.style.background = 'rgba(0,229,255,0.04)';
+    el.style.borderColor = 'rgba(0,229,255,0.3)';
+    el.style.boxShadow = '0 0 12px rgba(0,229,255,0.08), inset 0 0 10px rgba(0,229,255,0.02)';
+    dot.style.background = '#00e676';
+    dot.style.boxShadow = '0 0 4px #00e676';
+    label.style.color = '#00e5ff';
+    const s = stages.find(s => s.id === id);
+    val.textContent = s.metric;
+    val.style.color = '#e0f7fa';
+    sub.textContent = s.sub;
+    sub.style.color = 'rgba(100,200,255,0.6)';
+  }
+}
+
+function updateAlertPositions() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const margin = 24;
+  const startY = h * 0.18;
+  const spacing = Math.min(90, (h * 0.6) / 3);
+
+  stages.forEach(sec => {
+    const el = alerts[sec.id];
+    const layout = alertLayout[sec.id];
+
+    let alertX, alertY;
+    if (layout.side === 'right') {
+      alertX = w - margin - 170;
+      alertY = startY + layout.row * spacing;
+    } else {
+      alertX = margin;
+      alertY = startY + layout.row * spacing;
+    }
+    el.style.left = alertX + 'px';
+    el.style.top = alertY + 'px';
+
+    // Project section center to screen
+    const worldPos = new THREE.Vector3(0, sec.y + sec.height / 2, 0);
+    const screenPos = worldPos.clone().project(camera);
+    const sx = (screenPos.x * 0.5 + 0.5) * w;
+    const sy = (-screenPos.y * 0.5 + 0.5) * h;
+
+    // Leader line
+    const lineId = 'line-' + sec.id;
+    let line = document.getElementById(lineId);
+    let dot = document.getElementById('ldot-' + sec.id);
+    if (!line) {
+      line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      line.id = lineId;
+      line.setAttribute('fill', 'none');
+      line.setAttribute('stroke-width', '1');
+      line.setAttribute('stroke-dasharray', '5 4');
+      leaderSVG.appendChild(line);
+
+      dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.id = 'ldot-' + sec.id;
+      dot.setAttribute('r', '2.5');
+      leaderSVG.appendChild(dot);
+    }
+
+    // Colour based on state
+    const isDegraded = el.style.borderColor.includes('255');
+    const strokeColor = isDegraded ? 'rgba(255,51,68,0.4)' : 'rgba(0,229,255,0.2)';
+    const dotColor = isDegraded ? '#ff3344' : '#00e5ff';
+    line.setAttribute('stroke', strokeColor);
+    dot.setAttribute('fill', dotColor);
+
+    const boxEdgeX = layout.side === 'right' ? alertX : alertX + 160;
+    const boxEdgeY = alertY + 18;
+    const kneeX = layout.side === 'right' ? alertX - 15 : alertX + 175;
+
+    line.setAttribute('points', `${sx},${sy} ${kneeX},${boxEdgeY} ${boxEdgeX},${boxEdgeY}`);
+    dot.setAttribute('cx', sx);
+    dot.setAttribute('cy', sy);
+  });
+}
+
+// ===== SECTION STATE =====
+function setSectionColor(id, color, intensity) {
+  const m = sectionMaterials[id];
+  m.wireMat.color.setHex(color);
+  m.wireMat.opacity = intensity;
+  m.fillMat.color.setHex(color);
+  m.fillMat.opacity = color === RED ? 0.06 : 0.025;
+  m.topMat.color.setHex(color);
+  m.topMat.opacity = color === RED ? 0.08 : 0.04;
+  m.ringMat.color.setHex(color);
+  m.ringMat.opacity = color === RED ? 0.25 : 0.12;
+
+  const light = sectionLights[id];
+  light.color.setHex(color === RED ? RED : GREEN);
+  light.intensity = color === RED ? 2.5 : 0.3;
+}
+
+// ===== ANIMATION =====
+let time = 0;
+let particleSpeed = 1.0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  time += 0.016;
+  controls.update();
+
+  core.rotation.x = time * 0.4;
+  core.rotation.y = time * 0.6;
+  containRing.rotation.z = time * 0.08;
+
+  // Data particles flow DOWN through funnel (top to bottom)
+  dataParticles.forEach(p => {
+    const d = p.mesh.userData;
+    d.offset += 0.002 * d.speed * particleSpeed;
+    if (d.offset > 1) d.offset = 0;
+
+    // Interpolate from top stage radius to bottom
+    const t = d.offset;
+    const topR = 4.0;
+    const botR = 1.2;
+    const r = topR - (topR - botR) * t;
+    const y = 7.0 - t * 7.5;
+    const angle = t * Math.PI * 4 + d.speed * 20;
+
+    p.mesh.position.set(Math.cos(angle) * r * 0.6, y, Math.sin(angle) * r * 0.6);
+  });
+
+  // Dust
+  const positions = dustGeo.attributes.position.array;
+  for (let i = 0; i < dustCount; i++) {
+    positions[i*3+1] += 0.002;
+    if (positions[i*3+1] > 10) positions[i*3+1] = 0;
+  }
+  dustGeo.attributes.position.needsUpdate = true;
+
+  // Pulsing in degraded state
+  if (state.phase === 'degraded') {
+    const pulse = Math.sin(time * 4) * 0.3 + 0.7;
+    coreGlow.intensity = pulse * 3;
+    coreGlow.color.setHex(RED);
+    coreMat.color.setHex(RED);
+    spineMat.color.setHex(RED);
+    spineMat.opacity = pulse * 0.6;
+    containMat.color.setHex(RED);
+    containMat.opacity = pulse * 0.15;
+
+    stages.forEach(sec => {
+      const m = sectionMaterials[sec.id];
+      if (m.wireMat.color.getHex() === RED) {
+        m.wireMat.opacity = 0.5 + pulse * 0.5;
+        m.fillMat.opacity = 0.03 + pulse * 0.05;
+        m.ringMat.opacity = 0.15 + pulse * 0.15;
+        sectionLights[sec.id].intensity = pulse * 3;
+      }
+    });
+  } else {
+    coreGlow.color.setHex(CYAN);
+    coreGlow.intensity = 1.5;
+    coreMat.color.setHex(CYAN);
+    spineMat.color.setHex(CYAN);
+    spineMat.opacity = 0.4;
+    containMat.color.setHex(CYAN);
+    containMat.opacity = 0.1;
+  }
+
+  updateAlertPositions();
+  composer.render();
+}
+
+animate();
+
+// ===== REVENUE TICK =====
+function fmt(n) {
+  if (n >= 1_000_000) return '$' + (n/1_000_000).toFixed(2) + 'M';
+  if (n >= 1_000) return '$' + Math.round(n/1_000).toLocaleString() + 'K';
+  return '$' + Math.round(n).toLocaleString();
+}
+
+setInterval(() => {
+  if (state.phase === 'healthy' || state.phase === 'recovered') {
+    state.revenue += state.rate / 60;
+  } else if (state.phase === 'degraded') {
+    state.revenue -= state.riskPerMin / 60 * (0.8 + Math.random() * 0.4);
+    state.totalLost += state.riskPerMin / 60;
+    if (state.revenue < 500_000) state.revenue = 500_000;
+  } else if (state.phase === 'recovering') {
+    state.revenue += 6000 / 60;
+  }
+
+  document.getElementById('revAmt').textContent = fmt(state.revenue);
+  if (state.phase === 'degraded') {
+    document.getElementById('revAmt').className = 'amount red';
+    document.getElementById('revRate').className = 'rate neg';
+    document.getElementById('revRate').textContent = '-$' + Math.round(state.riskPerMin).toLocaleString() + '/min';
+  } else {
+    document.getElementById('revAmt').className = 'amount';
+    document.getElementById('revRate').className = 'rate pos';
+    document.getElementById('revRate').textContent = '+$' + Math.round(state.rate).toLocaleString() + '/min';
+  }
+}, 1000);
+
+// ===== TICKER =====
+function addTicker(msg, type = '') {
+  const bar = document.getElementById('ticker');
+  const el = document.createElement('div');
+  el.className = 'ticker-item ' + type;
+  el.textContent = msg;
+  bar.prepend(el);
+  if (bar.children.length > 5) bar.removeChild(bar.lastChild);
+}
+
+// ===== FAILURE =====
+document.getElementById('failBtn').addEventListener('click', () => {
+  if (state.phase !== 'healthy') return;
+  state.phase = 'degraded';
+  particleSpeed = 0.15;
+
+  document.getElementById('failBtn').disabled = true;
+  document.getElementById('resetBtn').classList.remove('hidden');
+  document.getElementById('riskBanner').classList.remove('hidden');
+  document.getElementById('sDot').className = 'dot red';
+  document.getElementById('sText').textContent = 'CRITICAL FAILURE';
+
+  controls.autoRotate = false;
+  bloom.strength = 1.4;
+
+  addTicker('Traffic spike: 4x capacity — infrastructure stressed', 'error');
+
+  // Cascade from bottom up (delivery fails first, then payment, etc.)
+  const order = ['delivery', 'payment', 'checkout', 'cart', 'browse', 'visitors'];
+  order.forEach((id, i) => {
+    setTimeout(() => {
+      setSectionColor(id, RED, 0.8);
+      setAlertState(id, 'degraded');
+      if (i === 0) addTicker('Order fulfilment — backlog growing', 'error');
+      if (i === 1) addTicker('Payment gateway — 34% failure rate', 'error');
+      if (i === 3) addTicker('Cart abandonment rate: 76%', 'error');
+      if (i === 5) addTicker('Revenue loss: $45,000/min', 'error');
+    }, 500 + i * 700);
+  });
+
+  setTimeout(() => {
+    document.getElementById('fixBtn').classList.remove('hidden');
+  }, 5500);
+});
+
+// ===== FIX =====
+document.getElementById('fixBtn').addEventListener('click', () => {
+  if (state.phase !== 'degraded') return;
+  state.phase = 'recovering';
+
+  document.getElementById('fixBtn').disabled = true;
+  document.getElementById('riskBanner').classList.add('hidden');
+  document.getElementById('sDot').className = 'dot amber';
+  document.getElementById('sText').textContent = 'RECOVERING';
+  bloom.strength = 0.8;
+
+  addTicker('Auto-remediation deployed — scaling infrastructure', 'success');
+
+  // Recover from top down (visitors first)
+  const order = ['visitors', 'browse', 'cart', 'checkout', 'payment', 'delivery'];
+  order.forEach((id, i) => {
+    setTimeout(() => {
+      setSectionColor(id, AMBER, 0.5);
+      if (i === 0) addTicker('CDN edge cache primed — load balanced', 'success');
+      if (i === 2) addTicker('Cart service scaled: 4 → 16 pods', 'success');
+      if (i === 4) addTicker('Payment retry circuit restored', 'success');
+    }, 400 + i * 500);
+  });
+
+  setTimeout(() => {
+    state.phase = 'recovered';
+    state.rate = 14200;
+    particleSpeed = 1.8;
+    controls.autoRotate = true;
+    bloom.strength = 1.1;
+
+    stages.forEach(sec => {
+      setSectionColor(sec.id, CYAN, 0.6);
+      setAlertState(sec.id, 'recovered');
+      sectionLights[sec.id].color.setHex(GREEN);
+      sectionLights[sec.id].intensity = 0.5;
+    });
+
+    document.getElementById('sDot').className = 'dot';
+    document.getElementById('sText').textContent = 'SYSTEMS NOMINAL';
+    document.getElementById('savedBanner').classList.remove('hidden');
+    document.getElementById('savedVal').textContent = fmt(state.totalLost);
+
+    addTicker('All systems nominal — ' + fmt(state.totalLost) + ' revenue protected', 'success');
+  }, 5000);
+});
+
+// ===== RESET =====
+document.getElementById('resetBtn').addEventListener('click', () => {
+  state.phase = 'healthy';
+  state.revenue = 2_847_000;
+  state.rate = 12400;
+  state.totalLost = 0;
+  particleSpeed = 1.0;
+
+  stages.forEach(sec => {
+    setSectionColor(sec.id, CYAN, 0.6);
+    setAlertState(sec.id, 'healthy');
+    sectionLights[sec.id].color.setHex(GREEN);
+    sectionLights[sec.id].intensity = 0.3;
+  });
+
+  bloom.strength = 1.0;
+  controls.autoRotate = true;
+
+  document.getElementById('failBtn').disabled = false;
+  document.getElementById('fixBtn').classList.add('hidden');
+  document.getElementById('fixBtn').disabled = false;
+  document.getElementById('resetBtn').classList.add('hidden');
+  document.getElementById('riskBanner').classList.add('hidden');
+  document.getElementById('savedBanner').classList.add('hidden');
+  document.getElementById('sDot').className = 'dot';
+  document.getElementById('sText').textContent = 'SYSTEMS NOMINAL';
+  document.getElementById('ticker').innerHTML = '';
+  addTicker('System reset — nominal');
+});
+
+// ===== RESIZE =====
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+});
+
+addTicker('Command Centre online — monitoring conversion funnel');
+</script>
+
+</body>
+</html>
