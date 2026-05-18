@@ -206,9 +206,9 @@
     background: rgba(3,12,8,0.92);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(28,231,131,0.3);
-    padding: clamp(14px, 2vw, 22px) clamp(16px, 2.5vw, 28px);
-    min-width: clamp(180px, 18vw, 260px);
-    min-height: clamp(80px, 8vh, 110px);
+    padding: clamp(18px, 2.4vw, 28px) clamp(20px, 3vw, 34px);
+    min-width: clamp(220px, 22vw, 310px);
+    min-height: clamp(96px, 10vh, 132px);
     z-index: 15;
     cursor: grab;
     user-select: none;
@@ -255,10 +255,10 @@
   }
   .hud-card .hud-name {
     font-family: 'Chakra Petch', sans-serif;
-    font-size: clamp(0.6rem, 0.9vw, 0.8rem); font-weight: 600; text-transform: uppercase;
+    font-size: clamp(0.72rem, 1.1vw, 0.96rem); font-weight: 600; text-transform: uppercase;
     letter-spacing: 0.1em; color: rgba(28,231,131,0.75);
     display: flex; align-items: center; justify-content: center; gap: 8px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     transition: color 0.5s;
   }
   .hud-card.degraded .hud-name { color: #ff4455; }
@@ -277,7 +277,7 @@
   .hud-card.recovered .hud-dot { background: #00e5ff; box-shadow: 0 0 6px #00e5ff, 0 0 12px rgba(0,229,255,0.3); }
   .hud-card .hud-val {
     font-family: 'JetBrains Mono', monospace;
-    font-size: clamp(1.1rem, 1.8vw, 1.7rem); font-weight: 700; color: #e8f5e9;
+    font-size: clamp(1.3rem, 2.2vw, 2rem); font-weight: 700; color: #e8f5e9;
     transition: color 0.5s;
     text-shadow: 0 0 8px rgba(28,231,131,0.2);
   }
@@ -285,7 +285,7 @@
   .hud-card.recovered .hud-val { color: #e0f7fa; text-shadow: 0 0 8px rgba(0,229,255,0.2); }
   .hud-card .hud-sub {
     font-family: 'Chakra Petch', sans-serif;
-    font-size: clamp(0.58rem, 0.85vw, 0.75rem); color: rgba(28,231,131,0.5); margin-top: 6px;
+    font-size: clamp(0.7rem, 1vw, 0.9rem); color: rgba(28,231,131,0.5); margin-top: 7px;
     letter-spacing: 0.03em;
     transition: color 0.5s;
   }
@@ -634,26 +634,26 @@ function repositionCards() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   const cx = w / 2;
-  const offsetX = Math.min(440, w * 0.38);
+  const offsetX = Math.min(530, w * 0.46);
+
+  const cardSpacing = Math.min(140, (h - 200) / 3);
+  const startY = 120;
 
   stages.forEach(sec => {
     const pos = alertPositions[sec.id];
     if (pos.manuallyMoved) return;
 
     const layout = alertLayout[sec.id];
-    const worldPos = new THREE.Vector3(0, sec.y + sec.height / 2, 0);
-    const screenPos = worldPos.clone().project(camera);
-    const sy = (-screenPos.y * 0.5 + 0.5) * h;
 
     let x;
     if (layout.side === 'right') {
-      x = cx + offsetX - 120;
+      x = cx + offsetX - 140;
     } else {
-      x = cx - offsetX - 120;
+      x = cx - offsetX - 140;
     }
 
-    x = Math.max(10, Math.min(x, w - 250));
-    const y = Math.max(60, Math.min(sy - 50, h - 160));
+    x = Math.max(10, Math.min(x, w - 280));
+    const y = startY + layout.row * cardSpacing;
 
     pos.x = x;
     pos.y = y;
