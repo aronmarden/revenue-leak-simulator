@@ -96,18 +96,19 @@
   .rate.neg { color: rgba(255,51,68,0.9); }
 
   .impact-banner {
-    position: fixed; top: 100px; left: 50%; transform: translateX(-50%);
-    z-index: 20; padding: 12px 28px; text-align: center; pointer-events: none;
-    border: 1px solid; backdrop-filter: blur(4px);
+    position: fixed; top: 108px; left: 50%; transform: translateX(-50%);
+    z-index: 20; padding: 18px 44px; text-align: center; pointer-events: none;
+    border: 1px solid; backdrop-filter: blur(8px);
+    clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
   }
-  .impact-banner.risk { background: rgba(255,30,50,0.06); border-color: rgba(255,51,68,0.5); }
-  .impact-banner.saved { background: rgba(0,229,255,0.06); border-color: rgba(0,229,255,0.5); }
-  .impact-banner .ib-label { font-family:'Orbitron',sans-serif; font-size:0.6rem; font-weight:500; text-transform:uppercase; letter-spacing:0.12em; }
+  .impact-banner.risk { background: rgba(255,20,40,0.08); border-color: rgba(255,51,68,0.6); box-shadow: 0 0 30px rgba(255,51,68,0.1); }
+  .impact-banner.saved { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.5); box-shadow: 0 0 30px rgba(0,229,255,0.08); }
+  .impact-banner .ib-label { font-family:'Orbitron',sans-serif; font-size:0.8rem; font-weight:500; text-transform:uppercase; letter-spacing:0.15em; }
   .impact-banner.risk .ib-label { color: #ff3344; }
   .impact-banner.saved .ib-label { color: #00e5ff; }
-  .impact-banner .ib-value { font-family:'Orbitron',sans-serif; font-size:1.3rem; font-weight:600; margin-top:3px; }
-  .impact-banner.risk .ib-value { color: #ff3344; }
-  .impact-banner.saved .ib-value { color: #00e5ff; }
+  .impact-banner .ib-value { font-family:'Orbitron',sans-serif; font-size:1.8rem; font-weight:700; margin-top:6px; }
+  .impact-banner.risk .ib-value { color: #ff3344; text-shadow: 0 0 12px rgba(255,51,68,0.3); }
+  .impact-banner.saved .ib-value { color: #00e5ff; text-shadow: 0 0 12px rgba(0,229,255,0.3); }
 
   .controls {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -147,14 +148,14 @@
   .ctrl-btn:disabled { opacity: 0.15; pointer-events: none; }
 
   .ticker-bar {
-    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
-    z-index: 20; display: flex; gap: 10px; max-width: 950px; pointer-events: none;
+    position: fixed; bottom: 95px; left: 50%; transform: translateX(-50%);
+    z-index: 20; display: flex; gap: 12px; max-width: 1000px; pointer-events: none;
     flex-wrap: wrap; justify-content: center;
   }
   .ticker-item {
-    flex-shrink: 0; padding: 8px 16px 8px 12px;
+    flex-shrink: 0; padding: 10px 18px 10px 14px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     background: rgba(0,12,8,0.8); border: 1px solid rgba(30,220,120,0.15);
     color: rgba(30,220,120,0.7); backdrop-filter: blur(4px);
     animation: tick-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); white-space: nowrap;
@@ -184,8 +185,8 @@
     backdrop-filter: blur(10px);
     border: 1px solid rgba(28,231,131,0.3);
     padding: 20px 26px;
-    min-width: 230px;
-    min-height: 100px;
+    min-width: 240px;
+    min-height: 105px;
     z-index: 15;
     cursor: grab;
     user-select: none;
@@ -536,33 +537,56 @@ const alertLayout = {
   delivery: { side: 'right', row: 2 },
 };
 
-stages.forEach(sec => {
-  const el = document.createElement('div');
-  el.className = 'hud-card';
-  el.id = 'hud-' + sec.id;
-  el.innerHTML = `
-    <div class="hud-name"><div class="hud-dot"></div>${sec.label}</div>
-    <div class="hud-val" id="hv-${sec.id}">${sec.metric}</div>
-    <div class="hud-sub" id="hs-${sec.id}">${sec.sub}</div>
-    <div class="resize-handle" data-resize="${sec.id}"></div>
-  `;
-  el.style.pointerEvents = 'auto';
-  alertContainer.appendChild(el);
-  alerts[sec.id] = el;
+// Position HUD cards symmetrically — project each stage's 3D Y to screen,
+// then offset equally left/right from viewport centre
+const CARD_OFFSET_X = 320; // px from centre to card edge
 
-  const layout = alertLayout[sec.id];
+function computeInitialPositions() {
   const w = window.innerWidth;
   const h = window.innerHeight;
-  const startY = h * 0.15;
-  const spacing = Math.min(120, (h * 0.6) / 3);
-  let x, y;
-  if (layout.side === 'right') { x = w * 0.62; } else { x = w * 0.08; }
-  y = startY + layout.row * spacing;
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
-  el.style.animationDelay = (stages.indexOf(sec) * 0.1) + 's';
-  alertPositions[sec.id] = { x, y };
-});
+  const cx = w / 2;
+
+  stages.forEach((sec, i) => {
+    const el = document.createElement('div');
+    el.className = 'hud-card';
+    el.id = 'hud-' + sec.id;
+    el.innerHTML = `
+      <div class="hud-name"><div class="hud-dot"></div>${sec.label}</div>
+      <div class="hud-val" id="hv-${sec.id}">${sec.metric}</div>
+      <div class="hud-sub" id="hs-${sec.id}">${sec.sub}</div>
+      <div class="resize-handle" data-resize="${sec.id}"></div>
+    `;
+    el.style.pointerEvents = 'auto';
+    alertContainer.appendChild(el);
+    alerts[sec.id] = el;
+
+    const layout = alertLayout[sec.id];
+
+    // Project this stage's world Y to screen Y
+    const worldPos = new THREE.Vector3(0, sec.y + sec.height / 2, 0);
+    const screenPos = worldPos.clone().project(camera);
+    const sy = (-screenPos.y * 0.5 + 0.5) * h;
+
+    // Symmetric X offset from centre
+    let x;
+    if (layout.side === 'right') {
+      x = cx + CARD_OFFSET_X - 115; // 115 = half card width approx
+    } else {
+      x = cx - CARD_OFFSET_X - 115;
+    }
+
+    // Clamp to viewport
+    x = Math.max(10, Math.min(x, w - 240));
+    const y = Math.max(60, Math.min(sy - 50, h - 150));
+
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.animationDelay = (i * 0.1) + 's';
+    alertPositions[sec.id] = { x, y };
+  });
+}
+
+computeInitialPositions();
 
 // Drag logic
 let activeDrag = null;
