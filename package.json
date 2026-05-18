@@ -6,7 +6,7 @@
     "start": "nr1 nerdpack:serve"
   },
   "nr1": {
-    "uuid": "revenue-leak-simulator"
+    "uuid": "101e3391-888f-4d4f-8de9-1ff0e08beb69"
   },
   "dependencies": {
     "@newrelic/nr-labs-components": "^2.0.7",
