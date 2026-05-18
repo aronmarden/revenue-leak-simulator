@@ -62,7 +62,7 @@
   }
   .revenue-display .amount {
     font-family: 'Orbitron', sans-serif;
-    font-size: 3rem; font-weight: 700;
+    font-size: clamp(1.8rem, 3.5vw, 3.2rem); font-weight: 700;
     color: #1ce783;
     text-shadow: 0 0 20px rgba(28,231,131,0.4), 0 0 80px rgba(28,231,131,0.15);
     transition: color 0.8s, text-shadow 0.8s;
@@ -119,9 +119,9 @@
     clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
   }
   .ctrl-btn {
-    padding: 18px 44px; border: 1px solid; border-radius: 0;
+    padding: clamp(14px, 1.8vw, 20px) clamp(28px, 4vw, 48px); border: 1px solid; border-radius: 0;
     font-family: 'Orbitron', sans-serif;
-    font-size: 0.85rem; font-weight: 600;
+    font-size: clamp(0.7rem, 1vw, 0.9rem); font-weight: 600;
     cursor: pointer; transition: all 0.25s;
     text-transform: uppercase; letter-spacing: 0.12em;
     background: rgba(0,15,25,0.8);
@@ -187,9 +187,9 @@
     background: rgba(3,12,8,0.92);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(28,231,131,0.3);
-    padding: 20px 26px;
-    min-width: 240px;
-    min-height: 105px;
+    padding: clamp(14px, 2vw, 22px) clamp(16px, 2.5vw, 28px);
+    min-width: clamp(180px, 18vw, 260px);
+    min-height: clamp(80px, 8vh, 110px);
     z-index: 15;
     cursor: grab;
     user-select: none;
@@ -236,7 +236,7 @@
   }
   .hud-card .hud-name {
     font-family: 'Chakra Petch', sans-serif;
-    font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+    font-size: clamp(0.6rem, 0.9vw, 0.8rem); font-weight: 600; text-transform: uppercase;
     letter-spacing: 0.1em; color: rgba(28,231,131,0.75);
     display: flex; align-items: center; justify-content: center; gap: 8px;
     margin-bottom: 10px;
@@ -258,7 +258,7 @@
   .hud-card.recovered .hud-dot { background: #00e5ff; box-shadow: 0 0 6px #00e5ff, 0 0 12px rgba(0,229,255,0.3); }
   .hud-card .hud-val {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 1.6rem; font-weight: 700; color: #e8f5e9;
+    font-size: clamp(1.1rem, 1.8vw, 1.7rem); font-weight: 700; color: #e8f5e9;
     transition: color 0.5s;
     text-shadow: 0 0 8px rgba(28,231,131,0.2);
   }
@@ -266,7 +266,7 @@
   .hud-card.recovered .hud-val { color: #e0f7fa; text-shadow: 0 0 8px rgba(0,229,255,0.2); }
   .hud-card .hud-sub {
     font-family: 'Chakra Petch', sans-serif;
-    font-size: 0.72rem; color: rgba(28,231,131,0.5); margin-top: 6px;
+    font-size: clamp(0.58rem, 0.85vw, 0.75rem); color: rgba(28,231,131,0.5); margin-top: 6px;
     letter-spacing: 0.03em;
     transition: color 0.5s;
   }
@@ -551,56 +551,58 @@ const alertLayout = {
   delivery: { side: 'right', row: 2 },
 };
 
-// Position HUD cards symmetrically — project each stage's 3D Y to screen,
-// then offset equally left/right from viewport centre
-const CARD_OFFSET_X = 320; // px from centre to card edge
+// Create HUD card elements
+stages.forEach((sec, i) => {
+  const el = document.createElement('div');
+  el.className = 'hud-card';
+  el.id = 'hud-' + sec.id;
+  el.innerHTML = `
+    <div class="hud-name"><div class="hud-dot"></div>${sec.label}</div>
+    <div class="hud-val" id="hv-${sec.id}">${sec.metric}</div>
+    <div class="hud-sub" id="hs-${sec.id}">${sec.sub}</div>
+    <div class="resize-handle" data-resize="${sec.id}"></div>
+  `;
+  el.style.pointerEvents = 'auto';
+  el.style.animationDelay = (i * 0.1) + 's';
+  alertContainer.appendChild(el);
+  alerts[sec.id] = el;
+  alertPositions[sec.id] = { x: 0, y: 0, manuallyMoved: false };
+});
 
-function computeInitialPositions() {
+// Reposition cards based on current viewport + camera — called on resize/zoom
+function repositionCards() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   const cx = w / 2;
+  const offsetX = Math.min(320, w * 0.28);
 
-  stages.forEach((sec, i) => {
-    const el = document.createElement('div');
-    el.className = 'hud-card';
-    el.id = 'hud-' + sec.id;
-    el.innerHTML = `
-      <div class="hud-name"><div class="hud-dot"></div>${sec.label}</div>
-      <div class="hud-val" id="hv-${sec.id}">${sec.metric}</div>
-      <div class="hud-sub" id="hs-${sec.id}">${sec.sub}</div>
-      <div class="resize-handle" data-resize="${sec.id}"></div>
-    `;
-    el.style.pointerEvents = 'auto';
-    alertContainer.appendChild(el);
-    alerts[sec.id] = el;
+  stages.forEach(sec => {
+    const pos = alertPositions[sec.id];
+    if (pos.manuallyMoved) return;
 
     const layout = alertLayout[sec.id];
-
-    // Project this stage's world Y to screen Y
     const worldPos = new THREE.Vector3(0, sec.y + sec.height / 2, 0);
     const screenPos = worldPos.clone().project(camera);
     const sy = (-screenPos.y * 0.5 + 0.5) * h;
 
-    // Symmetric X offset from centre
     let x;
     if (layout.side === 'right') {
-      x = cx + CARD_OFFSET_X - 115; // 115 = half card width approx
+      x = cx + offsetX - 120;
     } else {
-      x = cx - CARD_OFFSET_X - 115;
+      x = cx - offsetX - 120;
     }
 
-    // Clamp to viewport
-    x = Math.max(10, Math.min(x, w - 240));
-    const y = Math.max(60, Math.min(sy - 50, h - 150));
+    x = Math.max(10, Math.min(x, w - 250));
+    const y = Math.max(60, Math.min(sy - 50, h - 160));
 
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-    el.style.animationDelay = (i * 0.1) + 's';
-    alertPositions[sec.id] = { x, y };
+    pos.x = x;
+    pos.y = y;
+    alerts[sec.id].style.left = x + 'px';
+    alerts[sec.id].style.top = y + 'px';
   });
 }
 
-computeInitialPositions();
+repositionCards();
 
 // Drag logic
 let activeDrag = null;
@@ -625,6 +627,7 @@ document.addEventListener('mousemove', (e) => {
   const pos = alertPositions[activeDrag];
   pos.x = e.clientX - dragOffset.x;
   pos.y = e.clientY - dragOffset.y;
+  pos.manuallyMoved = true;
   alerts[activeDrag].style.left = pos.x + 'px';
   alerts[activeDrag].style.top = pos.y + 'px';
 });
@@ -962,6 +965,7 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  repositionCards();
 });
 
 addTicker('Command Centre online — monitoring conversion funnel');
