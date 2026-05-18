@@ -148,21 +148,19 @@
   .ctrl-btn:disabled { opacity: 0.15; pointer-events: none; }
 
   .ticker-bar {
-    position: fixed; bottom: 115px; left: 50%; transform: translateX(-50%);
-    z-index: 21; display: flex; flex-direction: column; gap: 8px;
-    max-width: 800px; width: 90%; pointer-events: none;
-    align-items: center;
+    position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%);
+    z-index: 21; pointer-events: none;
+    max-width: 700px; width: 80%;
   }
   .ticker-item {
-    padding: 16px 28px 16px 22px;
+    padding: 14px 24px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 1rem;
+    font-size: clamp(0.8rem, 1.1vw, 1rem);
     background: rgba(0,12,8,0.9); border: 1px solid rgba(30,220,120,0.2);
     color: rgba(30,220,120,0.8); backdrop-filter: blur(6px);
-    animation: tick-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); white-space: nowrap;
+    animation: tick-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
     clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%, 0 8px);
     border-left: 3px solid rgba(30,220,120,0.4);
-    width: 100%;
     text-align: center;
   }
   .ticker-item.error { border-color: rgba(255,51,68,0.4); border-left-color: #ff3344; color: #ff3344; }
@@ -272,6 +270,41 @@
   }
   .hud-card.degraded .hud-sub { color: rgba(255,100,120,0.7); }
   .hud-card.recovered .hud-sub { color: rgba(100,200,255,0.6); }
+  .hud-card .hud-log {
+    width: 100%;
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 60px;
+    overflow: hidden;
+  }
+  .hud-card .hud-log:empty { margin-top: 0; }
+  .hud-log-entry {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(0.55rem, 0.7vw, 0.65rem);
+    padding: 4px 8px;
+    border-left: 2px solid rgba(28,231,131,0.3);
+    background: rgba(28,231,131,0.03);
+    color: rgba(28,231,131,0.6);
+    text-align: left;
+    animation: log-in 0.3s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .hud-log-entry.error {
+    border-left-color: rgba(255,51,68,0.5);
+    background: rgba(255,51,68,0.04);
+    color: rgba(255,80,100,0.8);
+  }
+  .hud-log-entry.success {
+    border-left-color: rgba(0,229,255,0.4);
+    background: rgba(0,229,255,0.03);
+    color: rgba(0,200,230,0.7);
+  }
+  @keyframes log-in { from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:translateX(0)} }
+
   .hud-card .resize-handle {
     position: absolute;
     bottom: 4px; right: 4px;
@@ -560,6 +593,7 @@ stages.forEach((sec, i) => {
     <div class="hud-name"><div class="hud-dot"></div>${sec.label}</div>
     <div class="hud-val" id="hv-${sec.id}">${sec.metric}</div>
     <div class="hud-sub" id="hs-${sec.id}">${sec.sub}</div>
+    <div class="hud-log" id="hlog-${sec.id}"></div>
     <div class="resize-handle" data-resize="${sec.id}"></div>
   `;
   el.style.pointerEvents = 'auto';
@@ -852,16 +886,35 @@ setInterval(() => {
   }
 }, 1000);
 
-// ===== TICKER =====
-function addTicker(msg, type = '') {
+// ===== HUD LOG (messages appear inside relevant HUD cards) =====
+function addHudLog(stageId, msg, type = '') {
+  const log = document.getElementById('hlog-' + stageId);
+  if (!log) return;
+  const el = document.createElement('div');
+  el.className = 'hud-log-entry ' + type;
+  el.textContent = msg;
+  log.prepend(el);
+  if (log.children.length > 3) log.removeChild(log.lastChild);
+}
+
+function clearHudLogs() {
+  stages.forEach(sec => {
+    const log = document.getElementById('hlog-' + sec.id);
+    if (log) log.innerHTML = '';
+  });
+}
+
+// Global status line for system-wide messages
+function setStatusMsg(msg, type = '') {
   const bar = document.getElementById('ticker');
+  bar.innerHTML = '';
+  if (!msg) return;
   const el = document.createElement('div');
   el.className = 'ticker-item ' + type;
   const t = new Date();
   const ts = t.toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
   el.innerHTML = `<span style="opacity:0.5;margin-right:6px">${ts}</span><span style="opacity:0.6;margin-right:4px">›</span>${msg}`;
-  bar.prepend(el);
-  if (bar.children.length > 3) bar.removeChild(bar.lastChild);
+  bar.appendChild(el);
 }
 
 // ===== FAILURE =====
@@ -875,20 +928,28 @@ document.getElementById('failBtn').addEventListener('click', () => {
   document.getElementById('sDot').className = 'dot red';
   document.getElementById('sText').textContent = 'CRITICAL FAILURE';
   controls.autoRotate = false;
-  addTicker('Traffic spike: 4x capacity — systems stressed', 'error');
+  setStatusMsg('Traffic spike detected — 4x normal capacity', 'error');
 
   const order = ['delivery', 'payment', 'checkout', 'cart', 'browse', 'visitors'];
+  const failMsgs = {
+    delivery: 'Order backlog: 4,200 pending',
+    payment: '34% transaction failure rate',
+    checkout: 'Timeout errors — 87% drop-off',
+    cart: 'Abandonment rate: 76%',
+    browse: 'Page load > 12s — users bouncing',
+    visitors: 'Session errors cascading',
+  };
   order.forEach((id, i) => {
     setTimeout(() => {
       setSectionColor(id, RED, 0.8);
       setAlertState(id, 'degraded');
-      if (i === 0) addTicker('Fulfilment backlog growing', 'error');
-      if (i === 1) addTicker('Payment gateway: 34% failure rate', 'error');
-      if (i === 3) addTicker('Cart abandonment: 76%', 'error');
-      if (i === 5) addTicker('Revenue loss: $45,000/min', 'error');
+      addHudLog(id, failMsgs[id], 'error');
     }, 500 + i * 700);
   });
-  setTimeout(() => document.getElementById('fixBtn').classList.remove('hidden'), 5500);
+  setTimeout(() => {
+    setStatusMsg('Revenue loss: $45,000/min — remediation available', 'error');
+    document.getElementById('fixBtn').classList.remove('hidden');
+  }, 5500);
 });
 
 // ===== FIX =====
@@ -899,16 +960,22 @@ document.getElementById('fixBtn').addEventListener('click', () => {
   document.getElementById('riskBanner').classList.add('hidden');
   document.getElementById('sDot').className = 'dot cyan';
   document.getElementById('sText').textContent = 'RECOVERING';
-  addTicker('Auto-remediation deployed — scaling infrastructure', 'success');
+  setStatusMsg('Auto-remediation deployed — scaling infrastructure', 'success');
 
   const order = ['visitors', 'browse', 'cart', 'checkout', 'payment', 'delivery'];
+  const fixMsgs = {
+    visitors: 'CDN cache primed — load balanced',
+    browse: 'Product API recovered — 280ms',
+    cart: 'Service scaled: 4 → 16 pods',
+    checkout: 'Queue drained — processing resumed',
+    payment: 'Retry circuit restored — 99.9%',
+    delivery: 'Backlog clearing — dispatch resumed',
+  };
   order.forEach((id, i) => {
     setTimeout(() => {
       setSectionColor(id, CYAN, 0.6);
       setAlertState(id, 'recovered');
-      if (i === 0) addTicker('CDN cache primed — load balanced', 'success');
-      if (i === 2) addTicker('Cart service scaled: 4 → 16 pods', 'success');
-      if (i === 4) addTicker('Payment retry circuit restored', 'success');
+      addHudLog(id, fixMsgs[id], 'success');
     }, 400 + i * 500);
   });
 
@@ -917,6 +984,7 @@ document.getElementById('fixBtn').addEventListener('click', () => {
     state.rate = 14200;
     particleSpeed = 1.8;
     controls.autoRotate = true;
+    clearHudLogs();
     stages.forEach(sec => {
       setSectionColor(sec.id, PRIMARY, 0.6);
       setAlertState(sec.id, 'healthy');
@@ -929,7 +997,7 @@ document.getElementById('fixBtn').addEventListener('click', () => {
     document.getElementById('sText').textContent = 'SYSTEMS NOMINAL';
     document.getElementById('savedBanner').classList.remove('hidden');
     document.getElementById('savedVal').textContent = fmt(state.totalLost);
-    addTicker('All systems restored — ' + fmt(state.totalLost) + ' protected', 'success');
+    setStatusMsg('All systems restored — ' + fmt(state.totalLost) + ' protected', 'success');
   }, 5000);
 });
 
@@ -958,7 +1026,8 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   document.getElementById('sDot').className = 'dot';
   document.getElementById('sText').textContent = 'SYSTEMS NOMINAL';
   document.getElementById('ticker').innerHTML = '';
-  addTicker('System reset — nominal');
+  clearHudLogs();
+  setStatusMsg('System reset — nominal');
 });
 
 window.addEventListener('resize', () => {
@@ -968,7 +1037,7 @@ window.addEventListener('resize', () => {
   repositionCards();
 });
 
-addTicker('Command Centre online — monitoring conversion funnel');
+setStatusMsg('Command Centre online — monitoring conversion funnel');
 </script>
 
 </body>
