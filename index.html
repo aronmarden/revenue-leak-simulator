@@ -747,7 +747,7 @@ function updateLeaderLines() {
       line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
       line.id = 'line-' + sec.id;
       line.setAttribute('fill', 'none');
-      line.setAttribute('stroke-width', '1.5');
+      line.setAttribute('stroke-width', '3');
       line.setAttribute('stroke-dasharray', '6 4 2 4');
       line.style.animation = 'marching-ants 1.5s linear infinite';
       leaderSVG.appendChild(line);
