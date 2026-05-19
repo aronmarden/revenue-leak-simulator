@@ -636,14 +636,16 @@ function repositionCards() {
   const cx = w / 2;
   const offsetX = Math.min(530, w * 0.46);
 
-  const cardSpacing = Math.min(140, (h - 200) / 3);
-  const startY = 120;
-
   stages.forEach(sec => {
     const pos = alertPositions[sec.id];
     if (pos.manuallyMoved) return;
 
     const layout = alertLayout[sec.id];
+
+    // Project this stage's 3D Y to screen Y
+    const worldPos = new THREE.Vector3(0, sec.y + sec.height / 2, 0);
+    const screenPos = worldPos.clone().project(camera);
+    const sy = (-screenPos.y * 0.5 + 0.5) * h;
 
     let x;
     if (layout.side === 'right') {
@@ -653,7 +655,7 @@ function repositionCards() {
     }
 
     x = Math.max(10, Math.min(x, w - 280));
-    const y = startY + layout.row * cardSpacing;
+    const y = Math.max(60, Math.min(sy - 55, h - 160));
 
     pos.x = x;
     pos.y = y;
